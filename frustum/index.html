@@ -1,0 +1,117 @@
+<html>
+
+<head>
+<title>CSC561 Project 2: Rasterization</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<style>
+#canvas2 {
+	position:absolute;
+	left:0;
+	top:0;
+}
+</style>
+
+<script type="text/javascript" src="js/glMatrix-0.9.5.min.js"></script>
+<script src="js/jquery.min.js"></script>
+<script src="_moss/myJS.js"></script>
+
+<script id="shader-fs" type="x-shader/x-fragment">
+	precision highp float;
+
+	const int NUM_LIGHTS = 2;						// number of light sources--Need to be changed manually according to lights.txt
+	uniform vec3 uPointLightLocation[NUM_LIGHTS];	// light direction
+	uniform vec4 uLightAmbient[NUM_LIGHTS];			// light ambient property
+	uniform vec4 uLightDiffuse[NUM_LIGHTS];			// light diffuse property
+	uniform vec4 uLightSpecular[NUM_LIGHTS];		// light specular property
+
+	uniform sampler2D uSampler;
+
+	uniform vec4 uKa;
+	uniform vec4 uKd;
+	uniform vec4 uKs;
+	uniform float uShininess;
+	uniform bool uUseTexture;
+	uniform bool uDrawBox;
+
+	varying vec3 vNormal;
+	varying vec3 vEyeVec;
+	varying vec2 vTextureCoord;
+	varying vec3 vPosition;
+
+	void main(void) {
+		vec3 N = normalize(vNormal);
+		vec3 V = normalize(vEyeVec);
+
+		vec4 La = vec4(0.0, 0.0, 0.0, 0.0);
+		for (int i = 0; i < NUM_LIGHTS; i++) {
+			La = La + uLightAmbient[i];
+		}
+		vec4 Ia = La * uKa;
+		
+		vec4 mul = vec4(0.0, 0.0, 0.0, 0.0);
+		for (int i = 0; i < NUM_LIGHTS; i++) {
+			vec3 L = normalize(uPointLightLocation[i]-vPosition);
+			vec3 H = normalize(L + V);
+			vec4 Id = uLightDiffuse[i] * uKd * max(dot(-L, N), 0.0);
+			vec4 Is = uLightSpecular[i] * uKs * pow(max(dot(N, H), 0.0), uShininess);
+			mul = mul + Id + Is;
+		}
+
+		vec4 finalColor = Ia + mul;
+		if (uUseTexture) {
+			gl_FragColor = finalColor * texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+		} else {
+			gl_FragColor = finalColor;
+		}
+		if (uDrawBox) {
+			gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+		}
+		if (gl_FragColor.a < 0.5) {
+			discard;
+		}
+	}
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+	attribute vec3 aVertexPosition;
+	attribute vec3 aVertexNormal;
+	attribute vec2 aTextureCoord;
+
+	uniform mat4 uMVMatrix;
+	uniform mat4 uPMatrix;
+	uniform mat4 uNMatrix;
+	uniform bool uUseTexture;
+
+	varying vec3 vNormal;
+	varying vec3 vEyeVec;
+	varying vec2 vTextureCoord;
+	varying vec3 vPosition;
+
+	void main(void) {
+		vec4 vertex = uNMatrix * vec4(aVertexPosition, 1.0);
+		vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+		vPosition = aVertexPosition;
+		vEyeVec = vec3(0, 0, -1);
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		if (uUseTexture) {
+			vTextureCoord = aTextureCoord;
+		}
+	}
+</script>
+
+</head>
+
+<body onload="webGLStart();">
+	<canvas id="canvas" width="256" height="256"
+		style="position:absolute left:0; top:0; z-index:0;"></canvas>
+	<canvas id="canvas2" width="50" height="20"
+		style="position:absolute left:0; top:0; z-index:1;"></canvas>
+
+	<p>To change canvas size:</p>
+	<input onchange="webGLStart();" type="text" id="canvasWidth" name="width:" value="256" />
+	<input onchange="webGLStart();" type="text" id="canvasHeight" name="height" value="256" />
+</body>
+
+
+</html>
